@@ -71,7 +71,11 @@ print(f"Cumulants: {cumulants}")
 ### `get_loss`
 
 ```python
-get_loss(model: nn.Module, loader: DataLoader, loss_fn: callable = nn.CrossEntropyLoss(reduction="none")) -> torch.Tensor
+get_loss(
+    model: nn.Module, 
+    loader: DataLoader, 
+    loss_fn: callable = nn.CrossEntropyLoss(reduction="none")
+) -> torch.Tensor
 ```
 
 **Description**: Computes the loss of a model on the data from a `DataLoader`.
@@ -86,7 +90,12 @@ get_loss(model: nn.Module, loader: DataLoader, loss_fn: callable = nn.CrossEntro
 ### `eval_cumulant`
 
 ```python
-eval_cumulant(model: nn.Module, evaluation_points: torch.Tensor, loader: DataLoader, loss_fn: callable = nn.CrossEntropyLoss(reduction="none")) -> torch.Tensor
+eval_cumulant(
+    model: nn.Module, 
+    evaluation_points: torch.Tensor, 
+    loader: DataLoader, 
+    loss_fn: callable = nn.CrossEntropyLoss(reduction="none")
+) -> torch.Tensor
 ```
 
 **Description**: Computes the cumulants of the loss distribution at specified points.
@@ -102,7 +111,10 @@ eval_cumulant(model: nn.Module, evaluation_points: torch.Tensor, loader: DataLoa
 ### `eval_cumulant_from_losses`
 
 ```python
-eval_cumulant_from_losses(losses: torch.Tensor, evaluation_points: torch.Tensor) -> torch.Tensor
+eval_cumulant_from_losses(
+    losses: torch.Tensor, 
+    evaluation_points: torch.Tensor
+) -> torch.Tensor
 ```
 
 **Description**: Computes cumulants from precomputed losses at specified points.
