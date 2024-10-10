@@ -41,9 +41,11 @@ The repository includes the following key functions:
 1. **`get_loss`**: Computes the loss of a model on a given dataset.
 2. **`eval_cumulant`**: Evaluates cumulants of the loss distribution at specified points.
 3. **`eval_cumulant_from_losses`**: Computes cumulants using precomputed losses.
-4. **`inverse_rate_function`**: Computes the inverse of the rate function for a model at specific evaluation points.
-5. **`inverse_rate_function_from_losses`**: Computes the inverse of the rate function using precomputed losses.
-6. **`rate_function`**: Computes the rate function for a model at specific evaluation points.
+4. **`rate_function`**: Computes the rate function for a model at specific evaluation points.
+5. **`rate_function_from_losses`**: Computes the rate function using precomputed losses.
+6. **`inverse_rate_function`**: Computes the inverse of the rate function for a model at specific evaluation points.
+7. **`inverse_rate_function_from_losses`**: Computes the inverse of the rate function using precomputed losses.
+
 
 ### Example Usage
 
