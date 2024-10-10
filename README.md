@@ -1,7 +1,3 @@
-Here is the updated `README.md` to reflect the changes:
-
----
-
 # Rate Function and Cumulant Computation
 
 This repository provides PyTorch-based utilities for evaluating rate functions and cumulants for machine learning models. The code is designed to compute losses, evaluate cumulants, and invert rate functions using numerical methods such as ternary search.
