@@ -58,8 +58,8 @@ def eval_cumulant(model, evaluation_points, loader, loss_fn=nn.CrossEntropyLoss(
     ----------
     model : torch.nn.Module
         The model to evaluate.
-    evaluation_points : torch.Tensor
-        Tensor of evaluation points (lambda values) where the cumulants are computed.
+    evaluation_points : scalar, list, tuple or torch.Tensor
+        Evaluation points (lambda values) where the cumulants are computed.
     loader : torch.utils.data.DataLoader
         A DataLoader providing the dataset to evaluate.
     loss_fn : callable, optional
@@ -70,6 +70,11 @@ def eval_cumulant(model, evaluation_points, loader, loss_fn=nn.CrossEntropyLoss(
     torch.Tensor
         Tensor containing the cumulants evaluated at each point in evaluation_points.
     """
+    
+    # If evaluation_points is a scalar, convert it to list
+    if not isinstance(evaluation_points, (list, tuple)):
+        evaluation_points = [evaluation_points]
+    
     # Get the losses from the model on the loader data
     losses = get_loss(model, loader, loss_fn)
     
@@ -103,14 +108,19 @@ def eval_cumulant_from_losses(losses, evaluation_points):
     ----------
     losses : torch.Tensor
         Tensor containing the precomputed losses.
-    evaluation_points : torch.Tensor
-        Tensor of evaluation points (lambda values) where the cumulants are computed.
+    evaluation_points : scalar, list, tuple or torch.Tensor
+        Evaluation points (lambda values) where the cumulants are computed.
         
     Returns
     -------
     torch.Tensor
         Tensor containing the cumulants evaluated at each point in evaluation_points.
     """
+    
+    # If evaluation_points is a scalar, convert it to list
+    if not isinstance(evaluation_points, (list, tuple)):
+        evaluation_points = [evaluation_points]
+        
     # Compute the log-sum-exp constant for numerical stability
     logsumexp_constant = torch.log(torch.tensor(losses.shape[0], device=losses.device))
     

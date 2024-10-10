@@ -5,30 +5,23 @@ from ratefunctiontorch.cumulant import get_loss, eval_cumulant_from_losses
 import numpy as np
 
 @torch.no_grad()
-def rate_function(model, 
-                  evaluation_points, 
-                  loader, 
-                  loss_fn=nn.CrossEntropyLoss(reduction="none"),
-                  return_lambdas=False,
-                  return_cummulants=False,
-                  epsilon=0.01,
-                  max_lambda=100000,
-                  strategy="TernarySearch",
-                  verbose=False):
+def rate_function_from_losses(losses, 
+                              evaluation_points, 
+                              return_lambdas=False,
+                              return_cummulants=False,
+                              epsilon=0.01,
+                              max_lambda=100000,
+                              strategy="TernarySearch",
+                              verbose=False):
     """
-    Compute the rate function of a model over a given set of evaluation points, based on 
-    the data provided by the DataLoader and a loss function.
+    Compute the rate function based on precomputed losses over a set of evaluation points.
 
     Parameters
     ----------
-    model : torch.nn.Module
-        The model to evaluate.
-    evaluation_points : torch.Tensor
+    losses : torch.Tensor
+        The precomputed losses for the data.
+    evaluation_points : scalar, list, tuple or torch.Tensor
         Points at which the rate function will be computed.
-    loader : torch.utils.data.DataLoader
-        The DataLoader providing data for evaluation.
-    loss_fn : callable, optional
-        The loss function used for evaluation. Default is nn.CrossEntropyLoss(reduction="none").
     return_lambdas : bool, optional
         Whether to return the corresponding lambda values that maximize the auxiliary function.
     return_cummulants : bool, optional
@@ -50,10 +43,11 @@ def rate_function(model,
     """
     assert strategy in ["TernarySearch"], "Invalid strategy: only 'TernarySearch' is supported"
     
+    # If evaluation_points is a single value, convert it to list
+    if not isinstance(evaluation_points, (list, tuple)):
+        evaluation_points = [evaluation_points]
+    
     if strategy == "TernarySearch":
-        # Precompute losses
-        losses = get_loss(model, loader, loss_fn)
-        
         # Initialize progress bar if verbose
         evaluation_points = tqdm(evaluation_points) if verbose else evaluation_points
         
@@ -106,6 +100,158 @@ def rate_function(model,
         else:
             return np.array(rates)
 
+@torch.no_grad()
+def rate_function(model, 
+                  evaluation_points, 
+                  loader, 
+                  loss_fn=nn.CrossEntropyLoss(reduction="none"),
+                  return_lambdas=False,
+                  return_cummulants=False,
+                  epsilon=0.01,
+                  max_lambda=100000,
+                  strategy="TernarySearch",
+                  verbose=False):
+    """
+    Compute the rate function of a model over a given set of evaluation points, based on 
+    the data provided by the DataLoader and a loss function.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        The model to evaluate.
+    evaluation_points : scalar, list, tuple or torch.Tensor
+        Points at which the rate function will be computed.
+    loader : torch.utils.data.DataLoader
+        The DataLoader providing data for evaluation.
+    loss_fn : callable, optional
+        The loss function used for evaluation. Default is nn.CrossEntropyLoss(reduction="none").
+    return_lambdas : bool, optional
+        Whether to return the corresponding lambda values that maximize the auxiliary function.
+    return_cummulants : bool, optional
+        Whether to return the computed cummulants.
+    epsilon : float, optional
+        The precision for ternary search. Default is 0.01.
+    max_lambda : float, optional
+        Maximum value for lambda in the search range. Default is 100000.
+    strategy : str, optional
+        Strategy used to compute the rate function. Currently only "TernarySearch" is supported.
+    verbose : bool, optional
+        If True, display a progress bar. Default is False.
+        
+    Returns
+    -------
+    torch.Tensor or tuple
+        The rate function values. If return_lambdas or return_cummulants is True, additional 
+        arrays with lambdas or cummulants are returned.
+    """
+    assert strategy in ["TernarySearch"], "Invalid strategy: only 'TernarySearch' is supported"
+    
+    # If evaluation_points is a single value, convert it to list
+    if not isinstance(evaluation_points, (list, tuple)):
+        evaluation_points = [evaluation_points]
+    
+    # Precompute losses
+    losses = get_loss(model, loader, loss_fn)
+    
+    # Call rate_function_from_losses to compute the rate function
+    return rate_function_from_losses(
+        losses, 
+        evaluation_points, 
+        return_lambdas=return_lambdas,
+        return_cummulants=return_cummulants,
+        epsilon=epsilon,
+        max_lambda=max_lambda,
+        strategy=strategy,
+        verbose=verbose
+    )
+
+@torch.no_grad()
+def inverse_rate_function_from_losses(losses, 
+                                      evaluation_points, 
+                                      return_lambdas=False,
+                                      return_cummulants=False,
+                                      epsilon=0.01,
+                                      max_lambda=100000,
+                                      strategy="TernarySearch", 
+                                      verbose=False):
+    """
+    Compute the inverse of the rate function based on precomputed losses at specific evaluation points.
+
+    Parameters
+    ----------
+    losses : torch.Tensor
+        The precomputed losses for the data.
+    evaluation_points : scalar, list, tuple or torch.Tensor
+        Points at which the inverse rate function will be computed.
+    return_lambdas : bool, optional
+        Whether to return the corresponding lambda values that minimize the auxiliary function.
+    return_cummulants : bool, optional
+        Whether to return the computed cummulants.
+    epsilon : float, optional
+        The precision for ternary search. Default is 0.01.
+    max_lambda : float, optional
+        Maximum value for lambda in the search range. Default is 100000.
+    strategy : str, optional
+        Strategy used to compute the inverse rate function. Currently only "TernarySearch" is supported.
+    verbose : bool, optional
+        If True, display a progress bar. Default is False.
+        
+    Returns
+    -------
+    torch.Tensor or tuple
+        The inverse rate function values. If return_lambdas or return_cummulants is True, additional 
+        arrays with lambdas or cummulants are returned.
+    """
+    assert strategy in ["TernarySearch"], "Invalid strategy: only 'TernarySearch' is supported"
+    
+    # If evaluation_points is a single value, convert it to list
+    if not isinstance(evaluation_points, (list, tuple)):
+        evaluation_points = [evaluation_points]
+    
+    # Initialize progress bar if verbose
+    evaluation_points = tqdm(evaluation_points) if verbose else evaluation_points
+    
+    rates = []
+    cummulants = []
+    lambdas = []
+    
+    # Loop through each evaluation point
+    for a in evaluation_points:
+        # Set bounds for lambda based on the sign of 'a'
+        if a < 0:
+            min_lambda = torch.tensor(-max_lambda).to(losses.device)
+            max_lambda = torch.tensor(0).to(losses.device)
+        else:
+            min_lambda = torch.tensor(0).to(losses.device)
+            max_lambda = torch.tensor(max_lambda).to(losses.device)
+            
+        # Define the auxiliary function for inverse rate:
+        # This is the infimum of (cummulant(lambda) + a) / lambda
+        def auxiliar_function(lamb):
+            cummulant = eval_cumulant_from_losses(losses, torch.tensor([lamb])).item()
+            return (cummulant + a) / lamb
+        
+        # Perform ternary search to find the minimum
+        rate, lambda_star = ternary_search_min(auxiliar_function, min_lambda, max_lambda, epsilon=epsilon)
+        
+        # Collect lambda and cumulant if requested
+        if return_lambdas:
+            lambdas.append(lambda_star)
+        if return_cummulants:
+            cummulants.append(rate * lambda_star - a)
+        
+        # Append the rate to the result list
+        rates.append(rate)
+    
+    # Return requested results
+    if return_lambdas and return_cummulants:
+        return np.array(rates), np.array(lambdas), np.array(cummulants)
+    elif return_lambdas:
+        return np.array(rates), np.array(lambdas)
+    elif return_cummulants:
+        return np.array(rates), np.array(cummulants)
+    else:
+        return np.array(rates)
 
 @torch.no_grad()
 def inverse_rate_function(model, 
@@ -125,7 +271,7 @@ def inverse_rate_function(model,
     ----------
     model : torch.nn.Module
         The model to evaluate.
-    evaluation_points : torch.Tensor
+    evaluation_points : scalar, list, tuple or torch.Tensor
         Points at which the inverse rate function will be computed.
     loader : torch.utils.data.DataLoader
         The DataLoader providing data for evaluation.
@@ -152,54 +298,21 @@ def inverse_rate_function(model,
     """
     assert strategy in ["TernarySearch"], "Invalid strategy: only 'TernarySearch' is supported"
     
-    if strategy == "TernarySearch":
-        # Precompute losses
-        losses = get_loss(model, loader, loss_fn)
-        
-        # Initialize progress bar if verbose
-        evaluation_points = tqdm(evaluation_points) if verbose else evaluation_points
-        
-        rates = []
-        cummulants = []
-        lambdas = []
-        
-        # Loop through each evaluation point
-        for a in evaluation_points:
-            # Set bounds for lambda based on the sign of 'a'
-            if a < 0:
-                min_lambda = torch.tensor(-max_lambda).to(losses.device)
-                max_lambda = torch.tensor(0).to(losses.device)
-            else:
-                min_lambda = torch.tensor(0).to(losses.device)
-                max_lambda = torch.tensor(max_lambda).to(losses.device)
-                
-            # Define the auxiliary function for inverse rate:
-            # This is the infimum of (cummulant(lambda) + a) / lambda
-            def auxiliar_function(lamb):
-                cummulant = eval_cumulant_from_losses(losses, torch.tensor([lamb])).item()
-                return (cummulant + a) / lamb
-            
-            # Perform ternary search to find the minimum
-            rate, lambda_star = ternary_search_min(auxiliar_function, min_lambda, max_lambda, epsilon=epsilon)
-            
-            # Collect lambda and cumulant if requested
-            if return_lambdas:
-                lambdas.append(lambda_star)
-            if return_cummulants:
-                cummulants.append(rate*lambda_star - a)
-            
-            # Append the rate to the result list
-            rates.append(rate)
-        
-        # Return requested results
-        if return_lambdas and return_cummulants:
-            return np.array(rates), np.array(lambdas), np.array(cummulants)
-        elif return_lambdas:
-            return np.array(rates), np.array(lambdas)
-        elif return_cummulants:
-            return np.array(rates), np.array(cummulants)
-        else:
-            return np.array(rates)
+    # Precompute losses
+    losses = get_loss(model, loader, loss_fn)
+    
+    # Call inverse_rate_function_from_losses to compute the inverse rate function
+    return inverse_rate_function_from_losses(
+        losses, 
+        evaluation_points, 
+        return_lambdas=return_lambdas,
+        return_cummulants=return_cummulants,
+        epsilon=epsilon,
+        max_lambda=max_lambda,
+        strategy=strategy,
+        verbose=verbose
+    )
+
         
 
 def ternary_search_max(function, low, high, epsilon):
