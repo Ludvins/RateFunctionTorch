@@ -181,8 +181,6 @@ rate_function(
     return_cummulants: bool = False,
     epsilon: float = 0.01,
     max_lambda: float = 100000,
-
-
     strategy: str = "TernarySearch",
     verbose: bool = False
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
