@@ -6,15 +6,12 @@ This repository provides PyTorch-based utilities for evaluating rate functions a
 
 - [Installation](#installation)
 - [Usage](#usage)
-  - [Functions Overview](#functions-overview)
+  - [Functional API](#functional-api)
+  - [Class API](#class-api)
   - [Example Usage](#example-usage)
 - [API Reference](#api-reference)
-  - [get_loss](#get_loss)
-  - [eval_cumulant](#eval_cumulant)
-  - [eval_cumulant_from_losses](#eval_cumulant_from_losses)
-  - [inverse_rate_function_from_losses](#inverse_rate_function_from_losses)
-  - [inverse_rate_function](#inverse_rate_function)
-  - [rate_function](#rate_function)
+  - [Functional API](#functional-api-1)
+  - [Class API](#class-api-1)
 - [License](#license)
 
 ## Installation
@@ -34,9 +31,9 @@ cd rate-function-cumulant-computation
 
 ## Usage
 
-### Functions Overview
+### Functional API
 
-The repository includes the following key functions:
+The Functional API offers individual functions to compute rate functions, cumulants, and inverse rate functions directly.
 
 1. **`get_loss`**: Computes the loss of a model on a given dataset.
 2. **`eval_cumulant`**: Evaluates cumulants of the loss distribution at specified points.
@@ -44,41 +41,70 @@ The repository includes the following key functions:
 4. **`rate_function`**: Computes the rate function for a model at specific evaluation points.
 5. **`rate_function_from_losses`**: Computes the rate function using precomputed losses.
 6. **`inverse_rate_function`**: Computes the inverse of the rate function for a model at specific evaluation points.
-7. **`inverse_rate_function_from_losses`**: Computes the inverse of the rate function using precomputed losses.
+7. **`inverse_rate_function_from_losses`**: Computes the inverse rate function using precomputed losses.
 
+### Class API
+
+For users who prefer an object-oriented approach, the **`RateCumulant`** class encapsulates models, data loaders, loss functions, and related parameters. It provides methods to compute rate functions, inverse rate functions, and cumulants.
 
 ### Example Usage
+
+Below are example use cases for both the Functional API and Class API.
+
+#### Functional API Example
 
 ```python
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from my_module import get_loss, eval_cumulant, inverse_rate_function
+from my_module import get_loss, eval_cumulant, rate_function
 
-# Assuming you have a model and a DataLoader
+# Initialize model and DataLoader
 model = ...  # your model here
 data_loader = DataLoader(...)  # your dataset
 
-# Define loss function
-loss_fn = nn.CrossEntropyLoss(reduction="none")
+# Compute the loss using the functional API
+losses = get_loss(model, data_loader)
 
-# Example 1: Compute the loss of the model on the data
-losses = get_loss(model, data_loader, loss_fn)
-print(f"Losses: {losses}")
+# Compute cumulants at specified points
+evaluation_points = torch.tensor([0.1, 0.5, 1.0])
+cumulants = eval_cumulant(model, evaluation_points, data_loader)
 
-# Example 2: Evaluate cumulants at specified points
-evaluation_points = torch.tensor([0.1, 0.2, 0.5])  # Example evaluation points
-cumulants = eval_cumulant(model, evaluation_points, data_loader, loss_fn)
-print(f"Cumulants: {cumulants}")
+# Compute rate function at specified points
+rate_values = rate_function(model, evaluation_points, data_loader)
+```
 
-# Example 3: Compute inverse rate function for evaluation points
-inverse_rate = inverse_rate_function(model, evaluation_points, data_loader, loss_fn)
-print(f"Inverse Rate Function: {inverse_rate}")
+#### Class API Example
+
+```python
+import torch
+from torch import nn
+from torch.utils.data import DataLoader
+from my_module import RateCumulant
+
+# Initialize model and DataLoader
+model = ...  # your model here
+data_loader = DataLoader(...)  # your dataset
+
+# Initialize RateCumulant class
+rate_cumulant = RateCumulant(model, data_loader)
+
+# Compute rate function
+evaluation_points = torch.tensor([0.1, 0.5, 1.0])
+rate_values = rate_cumulant.compute_rate_function(evaluation_points)
+
+# Compute inverse rate function
+inverse_values = rate_cumulant.compute_inverse_rate_function(evaluation_points)
+
+# Compute cumulants
+cumulants = rate_cumulant.compute_cumulants(evaluation_points)
 ```
 
 ## API Reference
 
-### `get_loss`
+### Functional API
+
+#### `get_loss`
 
 ```python
 get_loss(
@@ -88,16 +114,16 @@ get_loss(
 ) -> torch.Tensor
 ```
 
-**Description**: Computes the loss of a model on the data from a `DataLoader`.
+**Description**: Computes the loss of a model on data provided by a `DataLoader`.
 
 - **Parameters**:
   - `model (nn.Module)`: The model to evaluate.
-  - `loader (DataLoader)`: The DataLoader providing data to the model.
+  - `loader (DataLoader)`: The data loader providing batches of data.
   - `loss_fn (callable)`: The loss function to use (default: `nn.CrossEntropyLoss(reduction="none")`).
 
-- **Returns**: A tensor of losses for each batch in the data.
+- **Returns**: A tensor of loss values.
 
-### `eval_cumulant`
+#### `eval_cumulant`
 
 ```python
 eval_cumulant(
@@ -108,17 +134,17 @@ eval_cumulant(
 ) -> torch.Tensor
 ```
 
-**Description**: Computes the cumulants of the loss distribution at specified points.
+**Description**: Computes the cumulants of the loss distribution at specified evaluation points.
 
 - **Parameters**:
   - `model (nn.Module)`: The model to evaluate.
-  - `evaluation_points (torch.Tensor)`: Tensor of evaluation points (lambda values).
-  - `loader (DataLoader)`: The DataLoader providing data to the model.
+  - `evaluation_points (torch.Tensor)`: Tensor of lambda values.
+  - `loader (DataLoader)`: The data loader providing batches of data.
   - `loss_fn (callable)`: The loss function to use (default: `nn.CrossEntropyLoss(reduction="none")`).
 
-- **Returns**: A tensor containing cumulants at the given evaluation points.
+- **Returns**: A tensor containing the cumulants.
 
-### `eval_cumulant_from_losses`
+#### `eval_cumulant_from_losses`
 
 ```python
 eval_cumulant_from_losses(
@@ -127,137 +153,144 @@ eval_cumulant_from_losses(
 ) -> torch.Tensor
 ```
 
-**Description**: Computes cumulants from precomputed losses at specified points.
+**Description**: Computes cumulants from precomputed loss values at specified points.
 
 - **Parameters**:
-  - `losses (torch.Tensor)`: The precomputed losses.
-  - `evaluation_points (torch.Tensor)`: Tensor of evaluation points (lambda values).
+  - `losses (torch.Tensor)`: Precomputed loss values.
+  - `evaluation_points (torch.Tensor)`: Tensor of lambda values.
 
-- **Returns**: A tensor containing cumulants evaluated at the given points.
+- **Returns**: A tensor containing the cumulants.
 
-### `rate_function_from_losses`
-
-```python
-rate_function_from_losses(
-    losses: torch.Tensor,
-    evaluation_points: torch.Tensor,
-    return_lambdas: bool = False,
-    return_cummulants: bool = False,
-    epsilon: float = 0.01,
-    max_lambda: float = 100000,
-    strategy: str = "TernarySearch",
-    verbose: bool = False
-) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
-```
-
-**Description**:  
-Computes the rate function using precomputed losses at specific evaluation points.
-
-- **Parameters**:
-  - `losses` (`torch.Tensor`): The precomputed losses.
-  - `evaluation_points` (`torch.Tensor`): Points at which the rate function will be computed.
-  - `return_lambdas` (`bool`, optional): If `True`, return the lambda values that minimize the auxiliary function (default is `False`).
-  - `return_cummulants` (`bool`, optional): If `True`, return the computed cummulants (default is `False`).
-  - `epsilon` (`float`, optional): Precision for ternary search (default is `0.01`).
-  - `max_lambda` (`float`, optional): Maximum value for lambda in the search range (default is `100000`).
-  - `strategy` (`str`, optional): Strategy used to compute the inverse rate function (only "TernarySearch" is supported; default is "TernarySearch").
-  - `verbose` (`bool`, optional): If `True`, display a progress bar (default is `False`).
-
-**Returns**:  
-- The rate function values. Optionally returns lambda values and cumulants if requested.
-
-
-### `rate_function`
+#### `rate_function`
 
 ```python
 rate_function(
-    model: nn.Module,
-    evaluation_points: torch.Tensor,
-    loader: torch.utils.data.DataLoader,
-    loss_fn: callable = nn.CrossEntropyLoss(reduction="none"),
+    model: nn.Module, 
+    evaluation_points: torch.Tensor, 
+    loader: DataLoader, 
+    loss_fn: callable = nn.CrossEntropyLoss(reduction="none"), 
     return_lambdas: bool = False,
-    return_cummulants: bool = False,
-    epsilon: float = 0.01,
-    max_lambda: float = 100000,
-    strategy: str = "TernarySearch",
+    return_cummulants: bool = False, 
+    epsilon: float = 0.01, 
+    max_lambda: float = 100000, 
+    strategy: str = "TernarySearch", 
     verbose: bool = False
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
 ```
 
-**Description**:  
-Computes the rate function of a model at specific evaluation points, based on the data provided by a DataLoader and a loss function. The rate function is calculated using an auxiliary function that is optimized through a ternary search process.
-
-**Parameters**:  
-- See the parameters in `inverse_rate_function`, as they are identical.
-
-### `inverse_rate_function_from_losses`
-
-```python
-inverse_rate_function_from_losses(
-    losses: torch.Tensor,
-    evaluation_points: torch.Tensor,
-    return_lambdas: bool = False,
-    return_cummulants: bool = False,
-    epsilon: float = 0.01,
-    max_lambda: float = 100000,
-    strategy: str = "TernarySearch",
-    verbose: bool = False
-) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
-```
-
-**Description**:  
-Computes the inverse rate function using precomputed losses at specific evaluation points.
+**Description**: Computes the rate function of the model at specific evaluation points.
 
 - **Parameters**:
-  - `losses` (`torch.Tensor`): The precomputed losses.
-  - `evaluation_points` (`torch.Tensor`): Points at which the inverse rate function will be computed.
-  - `return_lambdas` (`bool`, optional): If `True`, return the lambda values that minimize the auxiliary function (default is `False`).
-  - `return_cummulants` (`bool`, optional): If `True`, return the computed cummulants (default is `False`).
-  - `epsilon` (`float`, optional): Precision for ternary search (default is `0.01`).
-  - `max_lambda` (`float`, optional): Maximum value for lambda in the search range (default is `100000`).
-  - `strategy` (`str`, optional): Strategy used to compute the inverse rate function (only "TernarySearch" is supported; default is "TernarySearch").
-  - `verbose` (`bool`, optional): If `True`, display a progress bar (default is `False`).
+  - `model (nn.Module)`: The model to evaluate.
+  - `evaluation_points (torch.Tensor)`: Points at which to evaluate the rate function.
+  - `loader (DataLoader)`: DataLoader providing the data.
+  - `loss_fn (callable)`: The loss function to use.
+  - `return_lambdas` (`bool`, optional): Return the lambda values that minimize the auxiliary function.
+  - `return_cummulants` (`bool`, optional): Return the computed cumulants.
+  - `epsilon` (`float`, optional): Precision for the ternary search.
+  - `max_lambda` (`float`, optional): Maximum value of lambda for the search.
+  - `strategy` (`str`, optional): Strategy for inversion (`TernarySearch`).
+  - `verbose` (`bool`, optional): Show progress bar.
 
-**Returns**:  
-- The inverse rate function values. Optionally returns lambda values and cumulants if requested.
+- **Returns**: Tensor containing rate function values, and optionally, lambdas and cumulants.
 
-### `inverse_rate_function`
+#### `inverse_rate_function`
 
 ```python
 inverse_rate_function(
-    model: nn.Module,
-    evaluation_points: torch.Tensor,
-    loader: torch.utils.data.DataLoader,
-    loss_fn: callable = nn.CrossEntropyLoss(reduction="none"),
+    model: nn.Module, 
+    evaluation_points: torch.Tensor, 
+    loader: DataLoader, 
+    loss_fn: callable = nn.CrossEntropyLoss(reduction="none"), 
     return_lambdas: bool = False,
-    return_cummulants: bool = False,
-    epsilon: float = 0.01,
-    max_lambda: float = 100000,
-    strategy: str = "TernarySearch",
+    return_cummulants: bool = False, 
+    epsilon: float = 0.01, 
+    max_lambda: float = 100000, 
+    strategy: str = "TernarySearch", 
     verbose: bool = False
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
 ```
 
-**Description**:  
-Computes the inverse rate function of a model at specified evaluation points using data from a `DataLoader`. This function computes the losses internally and then calculates the inverse rate function by performing ternary search.
+**Description**: Computes the inverse rate function at specified evaluation points.
 
-**Parameters**:
-- `model` (`torch.nn.Module`): The model to evaluate.
-- `evaluation_points` (`torch.Tensor`): Points at which the inverse rate function will be computed.
-- `loader` (`torch.utils.data.DataLoader`): The DataLoader providing data for evaluation.
-- `loss_fn` (`callable`, optional): Loss function used for evaluation (default is `nn.CrossEntropyLoss(reduction="none")`).
-- `return_lambdas` (`bool`, optional): If `True`, return the lambda values that minimize the auxiliary function (default is `False`).
-- `return_cummulants` (`bool`, optional): If `True`, return the computed cummulants (default is `False`).
-- `epsilon` (`float`, optional): Precision for ternary search (default is `0.01`).
-- `max_lambda` (`float`, optional): Maximum value for lambda in the search range (default is `100000`).
-- `strategy` (`str`, optional): Strategy used to compute the inverse rate function (only "TernarySearch" is supported; default is "TernarySearch").
-- `verbose` (`bool`, optional): If `True`, display a progress bar (default is `False`).
-
-**Returns**:  
-- The inverse rate function values. Optionally returns lambda values and cumulants if requested.
+- **Parameters**: Same as `rate_function`.
 
 
----
+### Class API
+
+#### `RateCumulant`
+
+```python
+class RateCumulant:
+    def __init__(self, model, loader, loss_fn=nn.CrossEntropyLoss(reduction="none"), epsilon=0.01, max_lambda=100000, strategy="TernarySearch", verbose=False):
+        ...
+```
+
+**Description**: Initializes a `RateCumulant` class with model, data, and parameters for rate function and cumulant computation.
+
+- **Parameters**:
+  - `model (nn.Module)`: The model to evaluate.
+  - `loader (DataLoader)`: The data loader providing data for evaluation.
+  - `loss_fn (callable, optional)`: Loss function used for evaluation (default is `nn.CrossEntropyLoss(reduction="none")`).
+  - `epsilon (float, optional)`: Precision for ternary search (default is `0.01`).
+  - `max_lambda (float, optional)`: Maximum value for lambda in the search range.
+  - `strategy (str, optional)`: Search strategy (`TernarySearch`).
+  - `verbose (bool, optional)`: Show progress bar.
+
+#### `compute_rate_function`
+
+```python
+def compute_rate_function(
+    self, 
+    evaluation_points: torch.Tensor, 
+    return_lambdas: bool = False, 
+    return_cummulants: bool = False
+) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    ...
+```
+
+**Description**: Computes the rate function at specified evaluation points.
+
+- **Parameters**:
+  - `evaluation_points (torch.Tensor)`: Points at which to evaluate the rate function.
+  - `return_lambdas (bool, optional)`: Return the lambda values that minimize the auxiliary function.
+  - `return_cummulants (bool, optional)`: Return the computed cumulants.
+
+- **Returns**: Tensor containing rate function values, and optionally lambdas and cumulants.
+
+#### `compute_inverse_rate_function`
+
+```python
+def compute_inverse_rate_function(
+    self, 
+    evaluation_points: torch.Tensor, 
+    return_lambdas: bool = False, 
+    return_cummulants: bool = False
+) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    ...
+```
+
+**Description**: Computes the inverse rate function at specified evaluation points.
+
+- **Parameters**: Same as `compute_rate_function`.
+
+#### `compute_cumulants`
+
+```python
+def compute_cumulants(
+    self, 
+    evaluation_points: torch.Tensor
+) -> torch.Tensor:
+    ...
+```
+
+**Description**: Computes the cumulants of the loss distribution at specified evaluation points.
+
+- **Parameters**:
+  - `evaluation_points (torch.Tensor)`: Points at which to evaluate the cumulants.
+
+- **Returns**: Tensor containing the computed cumulants.
+
 
 ## License
 

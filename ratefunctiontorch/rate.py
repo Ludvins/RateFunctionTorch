@@ -44,7 +44,7 @@ def rate_function_from_losses(losses,
     assert strategy in ["TernarySearch"], "Invalid strategy: only 'TernarySearch' is supported"
     
     # If evaluation_points is a single value, convert it to list
-    if not isinstance(evaluation_points, (list, tuple)):
+    if not isinstance(evaluation_points, (list, tuple, np.ndarray, torch.Tensor)):
         evaluation_points = [evaluation_points]
     
     if strategy == "TernarySearch":
@@ -61,11 +61,11 @@ def rate_function_from_losses(losses,
             
             # Set bounds for lambda based on the sign of 'a'
             if a < 0:
-                min_lambda = torch.tensor(-max_lambda).to(losses.device)
-                max_lambda = torch.tensor(0).to(losses.device)
+                _min_lambda = torch.tensor(-max_lambda).to(losses.device)
+                _max_lambda = torch.tensor(0).to(losses.device)
             else:
-                min_lambda = torch.tensor(0).to(losses.device)
-                max_lambda = torch.tensor(max_lambda).to(losses.device)
+                _min_lambda = torch.tensor(0).to(losses.device)
+                _max_lambda = torch.tensor(max_lambda).to(losses.device)
                 
             # Define the auxiliary function: lambda * a - cumulant(lambda)
             def auxiliar_function(lamb):
@@ -74,8 +74,8 @@ def rate_function_from_losses(losses,
             
             # Perform ternary search to find the maximum
             rate, lambda_star = ternary_search_max(auxiliar_function,
-                                                   min_lambda,
-                                                   max_lambda,
+                                                   _min_lambda,
+                                                   _max_lambda,
                                                    epsilon=epsilon)
             
             # Adjust sign of the rate based on the sign of 'a'
@@ -147,7 +147,7 @@ def rate_function(model,
     assert strategy in ["TernarySearch"], "Invalid strategy: only 'TernarySearch' is supported"
     
     # If evaluation_points is a single value, convert it to list
-    if not isinstance(evaluation_points, (list, tuple)):
+    if not isinstance(evaluation_points, (list, tuple, np.ndarray, torch.Tensor)):
         evaluation_points = [evaluation_points]
     
     # Precompute losses
@@ -205,7 +205,7 @@ def inverse_rate_function_from_losses(losses,
     assert strategy in ["TernarySearch"], "Invalid strategy: only 'TernarySearch' is supported"
     
     # If evaluation_points is a single value, convert it to list
-    if not isinstance(evaluation_points, (list, tuple)):
+    if not isinstance(evaluation_points, (list, tuple, np.ndarray, torch.Tensor)):
         evaluation_points = [evaluation_points]
     
     # Initialize progress bar if verbose

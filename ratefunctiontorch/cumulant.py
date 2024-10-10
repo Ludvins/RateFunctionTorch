@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import numpy as np
 
 @torch.no_grad()
 def get_loss(model, loader, loss_fn=nn.CrossEntropyLoss(reduction="none")):
@@ -72,11 +73,12 @@ def eval_cumulant(model, evaluation_points, loader, loss_fn=nn.CrossEntropyLoss(
     """
     
     # If evaluation_points is a scalar, convert it to list
-    if not isinstance(evaluation_points, (list, tuple)):
+    if not isinstance(evaluation_points, (list, tuple, np.ndarray, torch.Tensor)):
         evaluation_points = [evaluation_points]
-    
+
     # Get the losses from the model on the loader data
     losses = get_loss(model, loader, loss_fn)
+
     
     # Compute the log-sum-exp constant for numerical stability
     logsumexp_constant = torch.log(torch.tensor(losses.shape[0], device=losses.device))
@@ -116,11 +118,10 @@ def eval_cumulant_from_losses(losses, evaluation_points):
     torch.Tensor
         Tensor containing the cumulants evaluated at each point in evaluation_points.
     """
-    
     # If evaluation_points is a scalar, convert it to list
-    if not isinstance(evaluation_points, (list, tuple)):
+    if not isinstance(evaluation_points, (list, tuple, np.ndarray, torch.Tensor)):
         evaluation_points = [evaluation_points]
-        
+            
     # Compute the log-sum-exp constant for numerical stability
     logsumexp_constant = torch.log(torch.tensor(losses.shape[0], device=losses.device))
     
