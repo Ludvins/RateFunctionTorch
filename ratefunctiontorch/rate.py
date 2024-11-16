@@ -1,8 +1,7 @@
 import torch
 from tqdm import tqdm
 from torch import nn
-from ratefunctiontorch.cumulant import get_loss, eval_cumulant_from_losses
-import numpy as np
+from ratefunctiontorch.cumulant import get_loss, eval_cumulant_from_losses, eval_cumulant_from_weighted_losses
 
 @torch.no_grad()
 def rate_function_from_losses(losses, 
@@ -12,7 +11,8 @@ def rate_function_from_losses(losses,
                               epsilon=0.01,
                               max_lambda=100000,
                               strategy="TernarySearch",
-                              verbose=False):
+                              verbose=False,
+                              weights=None):
     """
     Compute the rate function based on precomputed losses over a set of evaluation points.
 
@@ -34,6 +34,8 @@ def rate_function_from_losses(losses,
         Strategy used to compute the rate function. Currently only "TernarySearch" is supported.
     verbose : bool, optional
         If True, display a progress bar. Default is False.
+    weights : torch.Tensor, optional
+        The weights for the weighted losses.
         
     Returns
     -------
@@ -43,9 +45,13 @@ def rate_function_from_losses(losses,
     """
     assert strategy in ["TernarySearch"], "Invalid strategy: only 'TernarySearch' is supported"
     
-    # If evaluation_points is a single value, convert it to list
-    if not isinstance(evaluation_points, (list, tuple, np.ndarray, torch.Tensor)):
-        evaluation_points = [evaluation_points]
+    # Convert evaluation_points to tensor if it isn't already
+    if not isinstance(evaluation_points, torch.Tensor):
+        evaluation_points = torch.tensor(evaluation_points)
+    
+    # If evaluation_points is a scalar (0-d tensor), unsqueeze it to make it 1-d
+    if evaluation_points.ndim == 0:
+        evaluation_points = evaluation_points.unsqueeze(0)
     
     if strategy == "TernarySearch":
         # Initialize progress bar if verbose
@@ -69,7 +75,12 @@ def rate_function_from_losses(losses,
                 
             # Define the auxiliary function: lambda * a - cumulant(lambda)
             def auxiliar_function(lamb):
-                cummulant = eval_cumulant_from_losses(losses, torch.tensor([lamb])).item()
+                if weights is not None:
+                    # Use weighted cumulants if weights are provided
+                    cummulant = eval_cumulant_from_weighted_losses(losses, weights, torch.tensor([lamb])).item()
+                else:
+                    # Fallback to regular cumulants if no weights are provided
+                    cummulant = eval_cumulant_from_losses(losses, torch.tensor([lamb])).item()
                 return lamb * a - cummulant
             
             # Perform ternary search to find the maximum
@@ -92,13 +103,17 @@ def rate_function_from_losses(losses,
         
         # Return requested results
         if return_lambdas and return_cummulants:
-            return np.array(rates), np.array(lambdas), np.array(cummulants)
+            return (torch.tensor(rates), 
+                    torch.tensor(lambdas), 
+                    torch.tensor(cummulants))
         elif return_lambdas:
-            return np.array(rates), np.array(lambdas)
+            return (torch.tensor(rates), 
+                    torch.tensor(lambdas))
         elif return_cummulants:
-            return np.array(rates), np.array(cummulants)
+            return (torch.tensor(rates), 
+                    torch.tensor(cummulants))
         else:
-            return np.array(rates)
+            return torch.tensor(rates)
 
 @torch.no_grad()
 def rate_function(model, 
@@ -146,9 +161,13 @@ def rate_function(model,
     """
     assert strategy in ["TernarySearch"], "Invalid strategy: only 'TernarySearch' is supported"
     
-    # If evaluation_points is a single value, convert it to list
-    if not isinstance(evaluation_points, (list, tuple, np.ndarray, torch.Tensor)):
-        evaluation_points = [evaluation_points]
+    # Convert evaluation_points to tensor if it isn't already
+    if not isinstance(evaluation_points, torch.Tensor):
+        evaluation_points = torch.tensor(evaluation_points)
+    
+    # If evaluation_points is a scalar (0-d tensor), unsqueeze it to make it 1-d
+    if evaluation_points.ndim == 0:
+        evaluation_points = evaluation_points.unsqueeze(0)
     
     # Precompute losses
     losses = get_loss(model, loader, loss_fn)
@@ -173,7 +192,8 @@ def inverse_rate_function_from_losses(losses,
                                       epsilon=0.01,
                                       max_lambda=100000,
                                       strategy="TernarySearch", 
-                                      verbose=False):
+                                      verbose=False,
+                                      weights=None):
     """
     Compute the inverse of the rate function based on precomputed losses at specific evaluation points.
 
@@ -195,6 +215,8 @@ def inverse_rate_function_from_losses(losses,
         Strategy used to compute the inverse rate function. Currently only "TernarySearch" is supported.
     verbose : bool, optional
         If True, display a progress bar. Default is False.
+    weights : torch.Tensor, optional
+        The weights for the weighted losses.
         
     Returns
     -------
@@ -204,9 +226,13 @@ def inverse_rate_function_from_losses(losses,
     """
     assert strategy in ["TernarySearch"], "Invalid strategy: only 'TernarySearch' is supported"
     
-    # If evaluation_points is a single value, convert it to list
-    if not isinstance(evaluation_points, (list, tuple, np.ndarray, torch.Tensor)):
-        evaluation_points = [evaluation_points]
+    # Convert evaluation_points to tensor if it isn't already
+    if not isinstance(evaluation_points, torch.Tensor):
+        evaluation_points = torch.tensor(evaluation_points)
+    
+    # If evaluation_points is a scalar (0-d tensor), unsqueeze it to make it 1-d
+    if evaluation_points.ndim == 0:
+        evaluation_points = evaluation_points.unsqueeze(0)
     
     # Initialize progress bar if verbose
     evaluation_points = tqdm(evaluation_points) if verbose else evaluation_points
@@ -226,9 +252,13 @@ def inverse_rate_function_from_losses(losses,
             max_lambda = torch.tensor(max_lambda).to(losses.device)
             
         # Define the auxiliary function for inverse rate:
-        # This is the infimum of (cummulant(lambda) + a) / lambda
         def auxiliar_function(lamb):
-            cummulant = eval_cumulant_from_losses(losses, torch.tensor([lamb])).item()
+            if weights is not None:
+                # Use weighted cumulants if weights are provided
+                cummulant = eval_cumulant_from_weighted_losses(losses, weights, torch.tensor([lamb])).item()
+            else:
+                # Fallback to regular cumulants if no weights are provided
+                cummulant = eval_cumulant_from_losses(losses, torch.tensor([lamb])).item()
             return (cummulant + a) / lamb
         
         # Perform ternary search to find the minimum
@@ -245,13 +275,17 @@ def inverse_rate_function_from_losses(losses,
     
     # Return requested results
     if return_lambdas and return_cummulants:
-        return np.array(rates), np.array(lambdas), np.array(cummulants)
+        return (torch.tensor(rates), 
+                torch.tensor(lambdas), 
+                torch.tensor(cummulants))
     elif return_lambdas:
-        return np.array(rates), np.array(lambdas)
+        return (torch.tensor(rates), 
+                torch.tensor(lambdas))
     elif return_cummulants:
-        return np.array(rates), np.array(cummulants)
+        return (torch.tensor(rates), 
+                torch.tensor(cummulants))
     else:
-        return np.array(rates)
+        return torch.tensor(rates)
 
 @torch.no_grad()
 def inverse_rate_function(model, 
