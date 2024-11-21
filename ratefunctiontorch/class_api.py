@@ -133,7 +133,7 @@ class RateCumulant:
         """
         mean_loss = torch.mean(self.losses)
         variance = torch.mean((self.losses - mean_loss) ** 2)
-        return variance.item()  # Return as a Python float
+        return variance
     
     
 
@@ -176,7 +176,7 @@ class OnlineCumulant:
         self.losses = torch.empty(0, device=self.device)
         self.losses_weighted = torch.empty(0, device=self.device)
     
-    def update_losses(self, model, inputs, targets):
+    def update_losses_from_inputs(self, model, inputs, targets, requires_grad=False):
         """
         Update losses using the provided model and data.
         
@@ -188,14 +188,40 @@ class OnlineCumulant:
             Input data.
         targets : torch.Tensor
             Target labels.
+        requires_grad : bool, optional
+            If True, compute gradients for the losses. Default is False.
         """
         # Set the model to evaluation mode
         model.eval()
         
-        with torch.no_grad():
+        # Compute losses with or without gradients
+        if requires_grad:
             logits = model(inputs)
             new_losses = self.loss_fn(logits, targets)
+        else:
+            with torch.no_grad():
+                logits = model(inputs)
+                new_losses = self.loss_fn(logits, targets)
         
+        self.update_losses(new_losses)
+    
+    
+    def update_losses(self, new_losses):
+        """
+        Update losses using the provided model and data.
+        
+        Parameters
+        ----------
+        model : torch.nn.Module
+            The model to evaluate.
+        inputs : torch.Tensor
+            Input data.
+        targets : torch.Tensor
+            Target labels.
+        requires_grad : bool, optional
+            If True, compute gradients for the losses. Default is False.
+        """
+
         # Add new weights (1.0) for new losses
         new_weights = torch.ones(len(new_losses), device=self.device)
         
@@ -207,8 +233,8 @@ class OnlineCumulant:
         if len(self.losses) > self.buffer_size:
             self.losses = self.losses[-self.buffer_size:]
             self.losses_weighted = self.losses_weighted[-self.buffer_size:]
-    
-    def compute_cumulants(self, evaluation_points):
+
+    def compute_cumulants(self, evaluation_points, requires_grad=False):
         """
         Compute the cumulants at given evaluation points using precomputed losses.
         
@@ -216,14 +242,21 @@ class OnlineCumulant:
         ----------
         evaluation_points : scalar, list, tuple or torch.Tensor
             Points at which the cumulants will be computed.
+        requires_grad : bool, optional
+            If True, enables gradient computation. Default is False.
             
         Returns
         -------
         torch.Tensor
             The cumulants evaluated at each point in evaluation_points.
         """
-        
-        return eval_cumulant_from_weighted_losses(self.losses, self.losses_weighted, evaluation_points)
+        return eval_cumulant_from_weighted_losses(
+            self.losses, 
+            self.losses_weighted, 
+            evaluation_points,
+            requires_grad=requires_grad
+        )
+
     
     def compute_rate_function(self, evaluation_points, return_lambdas=False, return_cummulants=False):
         """
@@ -284,7 +317,8 @@ class OnlineCumulant:
             verbose=self.verbose,
             weights=self.losses_weighted
         )
-        
+    
+    
     def compute_mean(self):
         """
         Compute the weighted mean of the stored losses using the current weights.
@@ -313,4 +347,4 @@ class OnlineCumulant:
         weights = self.losses_weighted / self.losses_weighted.sum()  # Normalize weights
         mean_loss = (weights * self.losses).sum()  # Weighted mean
         variance = (weights * (self.losses - mean_loss) ** 2).sum()  # Weighted variance
-        return variance.item()  # Return as a Python float
+        return variance # Return as a Python float

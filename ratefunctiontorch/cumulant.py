@@ -102,8 +102,7 @@ def eval_cumulant(model, evaluation_points, loader, loss_fn=nn.CrossEntropyLoss(
     return torch.stack(cumulants)
 
 
-@torch.no_grad()
-def eval_cumulant_from_losses(losses, evaluation_points):
+def eval_cumulant_from_losses(losses, evaluation_points, requires_grad=False):
     """
     Compute the cumulants for a given set of precomputed losses at specified evaluation points.
 
@@ -130,28 +129,20 @@ def eval_cumulant_from_losses(losses, evaluation_points):
     if evaluation_points.ndim == 0:
         evaluation_points = evaluation_points.unsqueeze(0)
     
-    # Compute the log-sum-exp constant for numerical stability
-    logsumexp_constant = torch.log(torch.tensor(losses.shape[0], device=losses.device))
+    with torch.set_grad_enabled(requires_grad):
+        logsumexp_constant = torch.log(torch.tensor(losses.shape[0], device=losses.device))
+        cumulants = []
+        
+        for lamb in evaluation_points:
+            cumulant = torch.logsumexp(-lamb * losses, 0) - logsumexp_constant + torch.mean(lamb * losses)
+            cumulants.append(cumulant)
     
-    cumulants = []
-    
-    # For each evaluation point (lambda), compute the corresponding cumulant
-    for lamb in evaluation_points:
-        # Compute cumulant using log-sum-exp and add the mean term
-        cumulant = torch.logsumexp(-lamb * losses, 0) - logsumexp_constant + torch.mean(lamb * losses)
-        cumulants.append(cumulant)
-    
-    # Stack the results into a tensor and return
-    return torch.stack(cumulants)
+        return torch.stack(cumulants)
 
 
-@torch.no_grad()
-def eval_cumulant_from_weighted_losses(losses, weights, evaluation_points):
+def eval_cumulant_from_weighted_losses(losses, weights, evaluation_points, requires_grad=False):
     """
     Compute the cumulants for a given set of precomputed losses with weights at specified evaluation points.
-
-    This function allows calculating cumulants when the losses are already available, using
-    weighted averages instead of uniform averages.
 
     Parameters
     ----------
@@ -167,24 +158,23 @@ def eval_cumulant_from_weighted_losses(losses, weights, evaluation_points):
     torch.Tensor
         Tensor containing the cumulants evaluated at each point in evaluation_points.
     """
-    # Convert evaluation_points to tensor if it isn't already
+    # Convert evaluation_points to tensor and detach
     if not isinstance(evaluation_points, torch.Tensor):
         evaluation_points = torch.tensor(evaluation_points)
+    evaluation_points = evaluation_points.detach()
     
     # If evaluation_points is a scalar (0-d tensor), unsqueeze it to make it 1-d
     if evaluation_points.ndim == 0:
         evaluation_points = evaluation_points.unsqueeze(0)
     
-    # Normalize weights to sum to 1
-    weights = weights / weights.sum()
+    # Normalize weights to sum to 1 and detach
+    weights = (weights / weights.sum()).detach()
     
-    cumulants = []
+    with torch.set_grad_enabled(requires_grad):
+        cumulants = []
+        
+        for lamb in evaluation_points:
+            cumulant = torch.logsumexp(-lamb * losses + torch.log(weights), 0) + torch.sum(weights * lamb * losses)
+            cumulants.append(cumulant)
     
-    # For each evaluation point (lambda), compute the corresponding cumulant
-    for lamb in evaluation_points:
-        # Compute weighted cumulant using log-sum-exp
-        cumulant = torch.logsumexp(-lamb * losses + torch.log(weights), 0) + torch.sum(weights * lamb * losses)
-        cumulants.append(cumulant)
-    
-    # Stack the results into a tensor and return
-    return torch.stack(cumulants)
+        return torch.stack(cumulants)
