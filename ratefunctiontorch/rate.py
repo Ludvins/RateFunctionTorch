@@ -63,7 +63,7 @@ def rate_function_from_losses(losses,
         
         # Loop through each evaluation point
         for a in evaluation_points:
-            a = torch.tensor(a).to(losses.device)
+            a = a.clone().detach().to(losses.device)
             
             # Set bounds for lambda based on the sign of 'a'
             if a < 0:
