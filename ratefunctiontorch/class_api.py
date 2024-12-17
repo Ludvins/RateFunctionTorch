@@ -37,6 +37,40 @@ class RateCumulant:
         # Precompute losses and store them
         self.losses = get_loss(self.model, self.loader, self.loss_fn)
 
+    @classmethod
+    def from_losses(cls, losses, epsilon=0.01, max_lambda=100000, strategy="TernarySearch", verbose=False):
+        """
+        Alternative constructor that initializes RateCumulant with pre-computed losses.
+        
+        Parameters
+        ----------
+        losses : torch.Tensor
+            Pre-computed losses tensor.
+        epsilon : float, optional
+            The precision for ternary search. Default is 0.01.
+        max_lambda : float, optional
+            Maximum value for lambda in the search range. Default is 100000.
+        strategy : str, optional
+            Strategy used to compute the rate function. Currently only "TernarySearch" is supported.
+        verbose : bool, optional
+            If True, display a progress bar. Default is False.
+            
+        Returns
+        -------
+        RateCumulant
+            A new instance of RateCumulant initialized with the given losses.
+        """
+        instance = cls.__new__(cls)
+        instance.losses = losses
+        instance.epsilon = epsilon
+        instance.max_lambda = max_lambda
+        instance.strategy = strategy
+        instance.verbose = verbose
+        instance.model = None
+        instance.loader = None
+        instance.loss_fn = None
+        return instance
+
     def compute_rate_function(self, evaluation_points, return_lambdas=False, return_cummulants=False):
         """
         Compute the rate function at given evaluation points.
