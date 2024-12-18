@@ -71,6 +71,12 @@ class RateCumulant:
         instance.loss_fn = None
         return instance
 
+    def get_losses(self):
+        return self.losses
+    
+    def get_weights(self):
+        return self.losses_weighted
+
     def compute_rate_function(self, evaluation_points, return_lambdas=False, return_cummulants=False):
         """
         Compute the rate function at given evaluation points.
@@ -209,7 +215,13 @@ class OnlineCumulant:
         # Initialize empty tensors for both losses and weights
         self.losses = torch.empty(0, device=self.device)
         self.losses_weighted = torch.empty(0, device=self.device)
+
+    def get_losses(self):
+        return self.losses
     
+    def get_weights(self):
+        return self.losses_weighted
+
     def update_losses_from_inputs(self, model, inputs, targets, requires_grad=False):
         """
         Update losses using the provided model and data.
